@@ -11,7 +11,7 @@ import (
 const (
 	layout           string = "2006-01-02 15:04:05 +0000 UTC" // time format
 	host             string = "0.beevik-ntp.pool.ntp.org"     // host for getting exact time
-	exitCodeNTPError        = 1
+	exitCodeNTPError int    = 1
 )
 
 func main() {
