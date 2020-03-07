@@ -7,6 +7,8 @@ import (
 var ErrInvalidString = errors.New("invalid string")
 
 func Unpack(_ string) (string, error) {
-	// Place your code here
-	return "", nil
+	var result string
+	result = _
+
+	return result, nil
 }
