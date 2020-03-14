@@ -2,7 +2,6 @@ package hw02_unpack_string //nolint:golint,stylecheck
 
 import (
 	"errors"
-	"strconv"
 	"strings"
 	"unicode"
 )
@@ -16,38 +15,50 @@ func Unpack(in string) (string, error) {
 		return "", nil
 	}
 
-	var b strings.Builder
 	runes := []rune(in)
-	n := len(runes)
-	escape := false
+	var b strings.Builder
+	var esc bool // previous rune has been escaped by '/'
+	var prev rune
 
-	for i := 0; i < n-1; i++ {
-		if unicode.IsDigit(runes[i]) && unicode.IsDigit(runes[i+1]) && !escape { //numbers isn't allowed
-			return "", ErrInvalidString
-		}
-		if runes[i] == runes[i+1] && runes[i] != '\\' && !escape { // duplicated chars isn't allowed, except `\`
-			return "", ErrInvalidString
-		}
-		if escape && unicode.IsDigit(runes[i]) && !unicode.IsDigit(runes[i+1]) { // write single digit
-			b.WriteRune(runes[i])
-		}
-		if escape = runes[i] == '\\' && !escape; escape {
+	for i, cur := range runes {
+		if (i == 0 && i != len(runes)-1) || (cur == '\\' && prev != '\\') {
+			if esc {
+				b.WriteRune(prev)
+				esc = false
+			} else if !unicode.IsDigit(prev) && prev != 0 {
+				b.WriteRune(prev)
+			}
+			prev = cur
 			continue
 		}
-		if unicode.IsDigit(runes[i+1]) {
-			count, _ := strconv.Atoi(string(runes[i+1]))
-			if count != 0 {
-				b.WriteString(strings.Repeat(string(runes[i]), count))
-			}
-		} else if !unicode.IsDigit(runes[i]) { // write single char
-			b.WriteRune(runes[i])
+		if !esc && unicode.IsDigit(prev) && unicode.IsDigit(cur) { // numbers aren't allowed
+			return "", ErrInvalidString
 		}
-	}
-	if escape { // write last
-		b.WriteRune(runes[n-1])
-	}
-	if !unicode.IsDigit(runes[n-1]) && runes[n-1] != '\\' { // write last
-		b.WriteRune(runes[n-1])
+		if !esc && prev != '\\' && cur == prev { //duplicated chars aren't allowed
+			return "", ErrInvalidString
+		}
+		if unicode.IsDigit(cur) && (prev != '\\' || esc) && prev != 0 { // repeat
+			cnt := int(cur - '0')
+			if cnt != 0 {
+				b.WriteString(strings.Repeat(string(prev), cnt))
+			}
+		} else { // write single char
+			if esc { // any
+				b.WriteRune(prev)
+			}
+			if !unicode.IsDigit(prev) && prev != '\\' && prev != 0 { // letter
+				b.WriteRune(prev)
+			}
+		}
+		if i == len(runes)-1 { // write last
+			if prev == '\\' && !esc { // any
+				b.WriteRune(cur)
+			} else if !unicode.IsDigit(cur) && cur != '\\' { // letter
+				b.WriteRune(cur)
+			}
+		}
+		esc = !esc && prev == '\\'
+		prev = cur
 	}
 	return b.String(), nil
 }
