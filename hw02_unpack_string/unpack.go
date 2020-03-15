@@ -12,53 +12,41 @@ var ErrInvalidString = errors.New("invalid string")
 // This function allows skipping characters by '\'.
 func Unpack(in string) (string, error) {
 	if in == "" {
-		return "", nil
+		return in, nil
 	}
 
 	runes := []rune(in)
-	var b strings.Builder
-	var esc bool // previous rune has been escaped by '/'
-	var prev rune
 
-	for i, cur := range runes {
-		if (i == 0 && i != len(runes)-1) || (cur == '\\' && prev != '\\') {
-			if esc {
-				b.WriteRune(prev)
-				esc = false
-			} else if !unicode.IsDigit(prev) && prev != 0 {
-				b.WriteRune(prev)
-			}
+	if len(runes) == 1 && !unicode.IsDigit(runes[0]) && runes[0] != '\\' {
+		return in, nil
+	}
+
+	var b strings.Builder
+	var esc bool
+	prev := runes[0]
+	for _, cur := range runes[1:] {
+		if !esc && ((unicode.IsDigit(prev) && unicode.IsDigit(cur)) ||
+			(prev == cur && prev != '\\')) {
+			// numbers and duplicated chars aren't allowed
+			return "", ErrInvalidString
+		}
+		if esc && unicode.IsDigit(prev) && !unicode.IsDigit(cur) { // write single digit
+			b.WriteRune(prev)
+		}
+		if esc = prev == '\\' && !esc; esc {
 			prev = cur
 			continue
 		}
-		if !esc && unicode.IsDigit(prev) && unicode.IsDigit(cur) { // numbers aren't allowed
-			return "", ErrInvalidString
-		}
-		if !esc && prev != '\\' && cur == prev { //duplicated chars aren't allowed
-			return "", ErrInvalidString
-		}
-		if unicode.IsDigit(cur) && (prev != '\\' || esc) && prev != 0 { // repeat
+		if unicode.IsDigit(cur) {
 			cnt := int(cur - '0')
-			if cnt != 0 {
-				b.WriteString(strings.Repeat(string(prev), cnt))
-			}
-		} else { // write single char
-			if esc { // any
-				b.WriteRune(prev)
-			}
-			if !unicode.IsDigit(prev) && prev != '\\' && prev != 0 { // letter
-				b.WriteRune(prev)
-			}
+			b.WriteString(strings.Repeat(string(prev), cnt))
+		} else if !unicode.IsDigit(prev) { // write single char
+			b.WriteRune(prev)
 		}
-		if i == len(runes)-1 { // write last
-			if prev == '\\' && !esc { // any
-				b.WriteRune(cur)
-			} else if !unicode.IsDigit(cur) && cur != '\\' { // letter
-				b.WriteRune(cur)
-			}
-		}
-		esc = !esc && prev == '\\'
 		prev = cur
+	}
+	if esc || (!unicode.IsDigit(prev) && prev != '\\') { // write last
+		b.WriteRune(prev)
 	}
 	return b.String(), nil
 }
