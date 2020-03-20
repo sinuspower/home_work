@@ -22,6 +22,43 @@ func TestUnpack(t *testing.T) {
 			input:    "abcd",
 			expected: "abcd",
 		},
+		{ // new case
+			input:    "a1",
+			expected: "a",
+		},
+		{ // new case
+			input:    "1a",
+			expected: "a",
+		},
+		{ // new case
+			input:    "5",
+			expected: "",
+		},
+		{ // new case
+			input:    "m",
+			expected: "m",
+		},
+		{ // new case
+			input:    "m0",
+			expected: "",
+		},
+		{ // new case
+			input:    "m1",
+			expected: "m",
+		},
+		{ // new case
+			input:    "0m",
+			expected: "m",
+		},
+		{ // new case
+			input:    "m9a0d2",
+			expected: "mmmmmmmmmdd",
+		},
+		{ // new case
+			input:    "aa",
+			expected: "",
+			err:      ErrInvalidString,
+		},
 		{
 			input:    "45",
 			expected: "",
@@ -44,7 +81,7 @@ func TestUnpack(t *testing.T) {
 }
 
 func TestUnpackWithEscape(t *testing.T) {
-	t.Skip() // Remove if task with asterisk completed
+	// t.Skip() // Remove if task with asterisk completed
 
 	for _, tst := range [...]test{
 		{
@@ -62,6 +99,43 @@ func TestUnpackWithEscape(t *testing.T) {
 		{
 			input:    `qwe\\\3`,
 			expected: `qwe\3`,
+		},
+		{ // new case
+			input:    `\\`,
+			expected: `\`,
+		},
+		{ // new case
+			input:    `5\\`,
+			expected: `\`,
+		},
+		{ // new case
+			input:    `55\\`,
+			expected: ``,
+			err:      ErrInvalidString,
+		},
+		{ // new case
+			input:    `\5\5\`,
+			expected: `55`,
+		},
+		{ // new case
+			input:    `\55`,
+			expected: `55555`,
+		},
+		{ // new case
+			input:    `\\\\\\\\\\`,
+			expected: `\\\\\`,
+		},
+		{ // new case
+			input:    `\\\\5\\\\\\`,
+			expected: `\\\\\\\\\`,
+		},
+		{ // new case
+			input:    `\\\\\\\5\\\`,
+			expected: `\\\5\`,
+		},
+		{ // new case
+			input:    `a4b\55c2d5e\10`,
+			expected: `aaaab55555ccddddde`,
 		},
 	} {
 		result, err := Unpack(tst.input)
