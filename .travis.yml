@@ -62,6 +62,7 @@ jobs:
         hw07_file_copying, \
         hw08_envdir_tool, \
         hw11_telnet_client)
+
     - stage: "Tests"
       name: "Makefile"
       install: go mod download
