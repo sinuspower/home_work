@@ -47,16 +47,64 @@ func TestCache(t *testing.T) {
 		val, ok = c.Get("ccc")
 		require.False(t, ok)
 		require.Nil(t, val)
+
+		// new logic : test Clear() func
+		c.Clear()
+
+		val, ok = c.Get("aaa")
+		require.False(t, ok)
+		require.Equal(t, nil, val)
+
+		val, ok = c.Get("bbb")
+		require.False(t, ok)
+		require.Equal(t, nil, val)
 	})
 
 	t.Run("purge logic", func(t *testing.T) {
-		// Write me
+		c := NewCache(3)
+
+		_ = c.Set("a", 100)
+		_ = c.Set("b", 200)
+		_ = c.Set("c", 300) // capacity reached
+
+		val, ok := c.Get("a") // now "a" is in front of queue, "b" - in back
+		require.True(t, ok)
+		require.Equal(t, 100, val)
+
+		_ = c.Set("d", 400)
+
+		val, ok = c.Get("b")
+		require.False(t, ok) // "b" has been pulled
+		require.Equal(t, nil, val)
+
+		_ = c.Set("e", 500)
+
+		val, ok = c.Get("c")
+		require.False(t, ok) // "c" has been pulled
+		require.Equal(t, nil, val)
+
+		_ = c.Set("f", 600)
+
+		val, ok = c.Get("a")
+		require.False(t, ok) // "a" has been pulled
+		require.Equal(t, nil, val)
+
+		//are "d", "e" and "f" in the place?
+		val, ok = c.Get("d")
+		require.True(t, ok)
+		require.Equal(t, 400, val)
+
+		val, ok = c.Get("e")
+		require.True(t, ok)
+		require.Equal(t, 500, val)
+
+		val, ok = c.Get("f")
+		require.True(t, ok)
+		require.Equal(t, 600, val)
 	})
 }
 
 func TestCacheMultithreading(t *testing.T) {
-	t.Skip() // Remove if task with asterisk completed
-
 	c := NewCache(10)
 	wg := &sync.WaitGroup{}
 	wg.Add(2)
