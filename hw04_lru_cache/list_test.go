@@ -48,4 +48,52 @@ func TestList(t *testing.T) {
 		}
 		require.Equal(t, []int{50, 30, 10, 40, 60, 80, 70}, elems)
 	})
+
+	// new case
+	t.Run("remove all fronts", func(t *testing.T) {
+		elems := []string{"zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"}
+		l := NewList()
+		for i, v := range elems {
+			if i < len(elems)/2 {
+				l.PushFront(v)
+			} else {
+				l.PushBack(v)
+			}
+		} // Front()<["four", "three", "two", "one", "zero", "five", "six", "seven", "eight", "nine"]<Back()
+		require.Equal(t, l.Len(), 10)
+		require.Equal(t, "four", l.Front().Value)
+		require.Equal(t, "nine", l.Back().Value)
+
+		n := l.Len()
+		for i := 0; i < n; i++ { // remove all by "Front()"
+			l.Remove(l.Front())
+		}
+		require.Equal(t, l.Len(), 0)
+		require.Nil(t, l.Front())
+		require.Nil(t, l.Back())
+	})
+
+	// new case
+	t.Run("remove all backs", func(t *testing.T) {
+		elems := []float64{0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9}
+		l := NewList()
+		for i, v := range elems {
+			if i < len(elems)/2 {
+				l.PushBack(v)
+			} else {
+				l.PushFront(v)
+			}
+		} // Front()<[0.9, 0.8, 0.7, 0.6, 0.5, 0.0, 0.1, 0.2, 0.3, 0.4]<Back()
+		require.Equal(t, l.Len(), 10)
+		require.Equal(t, 0.9, l.Front().Value)
+		require.Equal(t, 0.4, l.Back().Value)
+
+		n := l.Len()
+		for i := 0; i < n; i++ { // remove all by "Back()"
+			l.Remove(l.Back())
+		}
+		require.Equal(t, l.Len(), 0)
+		require.Nil(t, l.Front())
+		require.Nil(t, l.Back())
+	})
 }
