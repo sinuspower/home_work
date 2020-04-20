@@ -14,8 +14,7 @@ type Task func() error
 // If m <= 0 then all of errors will be ignored.
 func Run(tasks []Task, n int, m int) error {
 	wg := &sync.WaitGroup{}
-	var errorsCount int32
-	var tasksRunning int32
+	var errorsCount, tasksRunning int32
 
 	if n <= 0 {
 		n = 1
@@ -28,8 +27,7 @@ func Run(tasks []Task, n int, m int) error {
 			atomic.AddInt32(&tasksRunning, 1)
 			go func(tIndex int) {
 				defer wg.Done()
-				err := tasks[tIndex]()
-				if err != nil {
+				if err := tasks[tIndex](); err != nil {
 					atomic.AddInt32(&errorsCount, 1)
 				}
 				atomic.AddInt32(&tasksRunning, -1) // one task completed
@@ -44,7 +42,7 @@ func Run(tasks []Task, n int, m int) error {
 
 	wg.Wait()
 
-	if m > 0 && errorsCount > 0 { // when m >= n
+	if m >= len(tasks) && int(errorsCount) == len(tasks) { // when m >= len(tasks)
 		return ErrErrorsLimitExceeded
 	}
 	return nil

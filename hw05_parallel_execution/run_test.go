@@ -64,7 +64,7 @@ func TestRun(t *testing.T) {
 	})
 
 	// new case
-	t.Run("run tasks with M <= 0: all of errors must be ignored", func(t *testing.T) {
+	t.Run("run tasks with M <= 0", func(t *testing.T) {
 		tasksCount := 20
 		tasks := make([]Task, 0, tasksCount)
 
@@ -90,7 +90,7 @@ func TestRun(t *testing.T) {
 	})
 
 	// new case
-	t.Run("run tasks with M >= tasksCount: all of tasks must be executed, error must be returned", func(t *testing.T) {
+	t.Run("run tasks with M >= tasksCount", func(t *testing.T) {
 		tasksCount := 30
 		tasks := make([]Task, 0, tasksCount)
 
@@ -142,7 +142,7 @@ func TestRun(t *testing.T) {
 	})
 
 	// new case
-	t.Run("run tasks with N <= 0 : sequential execution", func(t *testing.T) {
+	t.Run("run tasks with N <= 0, - sequential execution", func(t *testing.T) {
 		tasksCount := 50
 		tasks := make([]Task, 0, tasksCount)
 
