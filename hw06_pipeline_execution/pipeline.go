@@ -20,7 +20,11 @@ func ExecutePipeline(in In, done In, stages ...Stage) Out {
 				if !ok { // input channel closed
 					return
 				}
-				out <- v
+				select {
+				case <-done:
+					return
+				case out <- v:
+				}
 			}
 		}
 	}
