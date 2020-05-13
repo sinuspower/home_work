@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 )
 
 var (
@@ -19,7 +18,5 @@ func init() {
 
 func main() {
 	flag.Parse()
-	if err := Copy(from, to, offset, limit); err != nil {
-		fmt.Println(err)
-	}
+	// Place your code here
 }
