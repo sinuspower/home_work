@@ -6,7 +6,7 @@ import (
 	"os/exec"
 )
 
-// RunCmd runs a command + arguments (cmd) with environment variables from env
+// RunCmd runs a command + arguments (cmd) with environment variables from env.
 func RunCmd(cmd []string, env Environment) (returnCode int) {
 	if len(cmd) == 0 {
 		return
