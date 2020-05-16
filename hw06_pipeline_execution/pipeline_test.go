@@ -47,7 +47,7 @@ func TestPipeline(t *testing.T) {
 			close(in)
 		}()
 
-		result := make([]string, 0, 5)
+		result := make([]string, 0, 10)
 		start := time.Now()
 		for s := range ExecutePipeline(in, nil, stages...) {
 			result = append(result, s.(string))
@@ -69,8 +69,7 @@ func TestPipeline(t *testing.T) {
 		// Abort after 200ms
 		abortDur := sleepPerStage * 2
 		go func() {
-			<-time.After(abortDur)
-			close(done)
+			done <- <-time.After(abortDur)
 		}()
 
 		go func() {
@@ -80,7 +79,7 @@ func TestPipeline(t *testing.T) {
 			close(in)
 		}()
 
-		result := make([]string, 0, 5)
+		result := make([]string, 0, 10)
 		start := time.Now()
 		for s := range ExecutePipeline(in, done, stages...) {
 			result = append(result, s.(string))
@@ -89,49 +88,5 @@ func TestPipeline(t *testing.T) {
 
 		require.Len(t, result, 0)
 		require.Less(t, int64(elapsed), int64(abortDur)+int64(fault))
-	})
-
-	t.Run("empty data case", func(t *testing.T) {
-		in := make(Bi)
-		data := []int{}
-
-		go func() {
-			for _, v := range data {
-				in <- v
-			}
-			close(in)
-		}()
-
-		result := make([]string, 0)
-		for s := range ExecutePipeline(in, nil, stages...) {
-			result = append(result, s.(string))
-		}
-
-		require.Len(t, result, 0)
-	})
-
-	t.Run("no stages case", func(t *testing.T) {
-		in := make(Bi)
-		data := []int{1, 2, 3, 4, 5}
-
-		go func() {
-			for _, v := range data {
-				in <- v
-			}
-			close(in)
-		}()
-
-		result := make([]int, 0, 5)
-		start := time.Now()
-		for i := range ExecutePipeline(in, nil, []Stage{}...) {
-			result = append(result, i.(int))
-		}
-		elapsed := time.Since(start)
-
-		require.Equal(t, result, []int{1, 2, 3, 4, 5})
-		require.Less(t,
-			int64(elapsed),
-			// ~0.8s for processing 5 values in 4 stages (100ms every) concurrently
-			int64(sleepPerStage)*int64(len(stages)+len(data)-1)+int64(fault))
 	})
 }
