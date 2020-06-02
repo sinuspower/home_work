@@ -4,8 +4,11 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -18,34 +21,12 @@ var (
 	ErrCanNotReadLine = errors.New("can not read line from file")
 )
 
-func readString(f *os.File) (string, error) {
-	fInfo, err := f.Stat()
-	if err != nil {
-		return "", err
-	}
-	if fInfo.Size() == 0 {
-		return "", nil
-	}
-	reader := bufio.NewReader(f)
-	result := ""
-	isPrefix := true
-	for isPrefix {
-		line, p, err := reader.ReadLine()
-		if err != nil {
-			return "", err
-		}
-		result += string(bytes.ReplaceAll(line, []byte{0}, []byte("\n")))
-		isPrefix = p
-	}
-	return result, nil
-}
-
 // ReadDir reads a specified directory and returns map of env variables.
 // Variables represented as files where filename is name of variable, file first line is a value.
 func ReadDir(dir string) (Environment, error) {
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
-		return nil, ErrCanNotOpenDir
+		return nil, fmt.Errorf("%s: %w", ErrCanNotOpenDir, err)
 	}
 
 	env := make(Environment)
@@ -55,13 +36,13 @@ func ReadDir(dir string) (Environment, error) {
 			if strings.Contains(name, "=") {
 				return nil, ErrWrongFileName
 			}
-			f, err := os.Open(dir + string(os.PathSeparator) + name)
+			f, err := os.Open(filepath.Join(dir, name))
 			if err != nil {
-				return nil, ErrCanNotOpenFile
+				return nil, fmt.Errorf("%s: %w", ErrCanNotOpenFile, err)
 			}
 			value, err := readString(f)
 			if err != nil {
-				return nil, ErrCanNotReadLine
+				return nil, fmt.Errorf("%s: %w", ErrCanNotReadLine, err)
 			}
 			env[name] = value
 			f.Close()
@@ -73,4 +54,23 @@ func ReadDir(dir string) (Environment, error) {
 	}
 
 	return env, nil
+}
+
+func readString(f *os.File) (string, error) {
+	fInfo, err := f.Stat()
+	if err != nil {
+		return "", err
+	}
+	if fInfo.Size() == 0 {
+		return "", nil
+	}
+	reader := bufio.NewReader(f)
+
+	line, err := reader.ReadBytes('\n')
+	if err != nil && err != io.EOF {
+		return "", nil
+	}
+
+	result := string(bytes.ReplaceAll(line, []byte{0}, []byte("\n")))
+	return strings.TrimRight(result, "\n\t "), nil
 }

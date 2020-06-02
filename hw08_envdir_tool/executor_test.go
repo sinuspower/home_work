@@ -22,14 +22,10 @@ func TestRunCmd(t *testing.T) {
 
 	t.Run("return codes", func(t *testing.T) {
 		f, err := os.Create("testdata/test")
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.Nil(t, err)
 
 		_, err = f.Write([]byte("File contents."))
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.Nil(t, err)
 		f.Close()
 
 		cmd := []string{"cat", "testdata/test"}
@@ -41,30 +37,22 @@ func TestRunCmd(t *testing.T) {
 		require.Equal(t, 1, returnCode)
 
 		err = os.Remove("testdata/test")
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.Nil(t, err)
 	})
 
 	t.Run("command output", func(t *testing.T) {
 		f, err := os.Create("testdata/test")
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.Nil(t, err)
 
 		_, err = f.Write([]byte(`This is a test file contents.
 		This contents must be printed into Stdout by "cat" command
 		executed from the "RunCmd" function.`))
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.Nil(t, err)
 		f.Close()
 
 		cmd := []string{"cat", "testdata/test"}
 		result, err := catchStdout(RunCmd, cmd, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.Nil(t, err)
 
 		expected := `This is a test file contents.
 		This contents must be printed into Stdout by "cat" command
@@ -73,9 +61,7 @@ func TestRunCmd(t *testing.T) {
 		require.Equal(t, string(result), expected)
 
 		err = os.Remove("testdata/test")
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.Nil(t, err)
 	})
 }
 
