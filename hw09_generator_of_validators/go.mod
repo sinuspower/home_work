@@ -1,4 +1,4 @@
-module github.com/sinuspower/home_work/hw09_generator_of_validators
+module github.com/sinuspower/bad/home_work/hw09_generator_of_validators
 
 go 1.14
 
