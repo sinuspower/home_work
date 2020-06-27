@@ -235,11 +235,13 @@ func getImportsString(f field) []string {
 func getImportsInt(f field) []string {
 	var imports []string
 	for _, rule := range f.Rules {
-		if rule.Type == "in" && !in(imports, "strings") {
-			imports = append(imports, "strings")
-		}
-		if rule.Type == "in" && !in(imports, "strconv") {
-			imports = append(imports, "strconv")
+		if rule.Type == "in" {
+			if !in(imports, "strings") {
+				imports = append(imports, "strings")
+			}
+			if !in(imports, "strconv") {
+				imports = append(imports, "strconv")
+			}
 		}
 	}
 	return imports
