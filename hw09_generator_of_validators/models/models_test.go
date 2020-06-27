@@ -60,8 +60,18 @@ func TestUserValidation(t *testing.T) {
 	})
 
 	t.Run("phones slice", func(t *testing.T) {
-		// Write me :)
-		t.Fail()
+		u := goodUser
+		good := []string{"79204049665", "79090309449", "79294765432"}
+		u.Phones = good
+		errs, err := u.Validate()
+		require.Nil(t, err)
+		require.Len(t, errs, 0)
+
+		bad := []string{"79204049665", "+79090309449", "79294765432"}
+		u.Phones = bad
+		errs, err = u.Validate()
+		require.Nil(t, err)
+		requireOneFieldErr(t, errs, "Phones")
 	})
 
 	t.Run("many errors", func(t *testing.T) {
@@ -108,6 +118,7 @@ func TestResponseValidation(t *testing.T) {
 
 	goodResponse := Response{
 		Code: http.StatusOK,
+		Desc: []string{"ok", "all good"},
 		Body: "some body",
 	}
 	requireNoValidationErrors(t, goodResponse)
@@ -126,6 +137,26 @@ func TestResponseValidation(t *testing.T) {
 		errs, err := r.Validate()
 		require.Nil(t, err)
 		requireOneFieldErr(t, errs, "Code")
+	})
+
+	t.Run("desc set", func(t *testing.T) {
+		r := goodResponse
+
+		for _, d := range [][]string{
+			{"ok", "all good"},
+			{"not found", "we miss it"},
+			{"server error", "bad server"},
+		} {
+			r.Desc = d
+			errs, err := r.Validate()
+			require.Nil(t, err)
+			require.Len(t, errs, 0)
+		}
+
+		r.Desc = []string{"bad", "unknown", "bad server"}
+		errs, err := r.Validate()
+		require.Nil(t, err)
+		requireOneFieldErr(t, errs, "Desc")
 	})
 }
 
