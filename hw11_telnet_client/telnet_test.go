@@ -63,3 +63,26 @@ func TestTelnetClient(t *testing.T) {
 		wg.Wait()
 	})
 }
+
+func TestConnect(t *testing.T) {
+	l, err := net.Listen("tcp", "127.0.0.1:4042")
+	require.NoError(t, err)
+	defer func() { require.NoError(t, l.Close()) }()
+	timeout, err := time.ParseDuration("10s")
+	require.NoError(t, err)
+
+	in := &bytes.Buffer{}
+	out := &bytes.Buffer{}
+
+	t.Run("successful connection", func(t *testing.T) {
+		client := NewTelnetClient(l.Addr().String(), timeout, ioutil.NopCloser(in), out)
+		require.NoError(t, client.Connect())
+		defer func() { require.NoError(t, client.Close()) }()
+	})
+
+	t.Run("connect to unknown address", func(t *testing.T) {
+		client := NewTelnetClient("unknown", timeout, ioutil.NopCloser(in), out)
+		require.Equal(t, client.Connect(), ErrCanNotConnect)
+		defer func() { require.NoError(t, client.Close()) }()
+	})
+}
