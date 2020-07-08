@@ -1,0 +1,243 @@
+{{/* template of validation function */}}
+{{define "func"}}
+    // Validate validates fields of {{.TypeName}} struct.
+    func ({{.VarName}} {{.TypeName}}) Validate() ([]ValidationError, error) {
+    var vErrs []ValidationError
+    {{$varName := .VarName}}
+    {{range .Fields}}
+        {{$fieldName := .Name}}
+        {{$fieldType := .Type}}
+        {{$fieldBaseType := .BaseType}}
+        {{range .Rules}}
+            {{/* rules for int */}}
+            {{if and (eq $fieldType "int") (eq .Type "min")}}
+                if {{$varName}}.{{$fieldName}} < {{.String}} {
+                    vErrs = append(vErrs, ValidationError{
+                        Field: "{{$fieldName}}",
+                        Err: errors.New("{{$fieldName}} must be greater than {{.String}}"),
+                    })
+                }
+            {{else if and (eq $fieldType "int") (eq .Type "max")}}
+                if {{$varName}}.{{$fieldName}} > {{.String}} {
+                    vErrs = append(vErrs, ValidationError{
+                        Field: "{{$fieldName}}",
+                        Err: errors.New("{{$fieldName}} must be less than {{.String}}"),
+                    })
+                }
+            {{else if and (eq $fieldType "int") (eq .Type "in")}}
+                {{$varName}}{{$fieldName}}Set := strings.Split("{{.String}}", ",")
+                var found bool
+                for _, s := range {{$varName}}{{$fieldName}}Set {
+                    i, err := strconv.Atoi(strings.TrimSpace(s))
+                    if err != nil {
+                        return vErrs, err
+                    }
+                    found = {{$varName}}.{{$fieldName}} == i
+                    if found {
+                        break
+                    }
+                }
+                if !found {
+                    vErrs = append(vErrs, ValidationError{
+                        Field: "{{$fieldName}}",
+                        Err: errors.New("{{$fieldName}} not in [{{.String}}]"),
+                    })
+                }
+            {{/* rules for string */}}
+            {{else if and (eq $fieldType "string") (eq .Type "len")}}
+                if len({{$varName}}.{{$fieldName}}) != {{.String}} {
+                    vErrs = append(vErrs, ValidationError{
+                        Field: "{{$fieldName}}",
+                        Err: errors.New("length of {{$fieldName}} must be {{.String}} characters"),
+                    })
+                }
+            {{else if and (eq $fieldType "string") (eq .Type "regexp")}}
+                {{$varName}}{{$fieldName}}RE, err := regexp.Compile("{{.String}}")
+	            if err != nil {
+		            return vErrs, err
+	            }
+	            if !{{$varName}}{{$fieldName}}RE.Match([]byte({{$varName}}.{{$fieldName}})) {
+		            vErrs = append(vErrs, ValidationError{
+                        Field: "{{$fieldName}}",
+                        Err: errors.New(`{{$fieldName}} is not matching regexp "{{.String}}"`),
+                    })
+	            }
+            {{else if and (eq $fieldType "string") (eq .Type "in")}}
+                inStrings := strings.Split("{{.String}}", ",")
+                var found bool
+                for _, s := range inStrings {
+                    found = {{$varName}}.{{$fieldName}} == strings.TrimSpace(s)
+                    if found {
+                        break
+                    }
+                }
+                if !found {
+                    vErrs = append(vErrs, ValidationError{
+                        Field: "{{$fieldName}}",
+                        Err: errors.New("{{$fieldName}} not in [{{.String}}]"),
+                    })
+                }
+            {{/* rules for arrays */}}
+            {{else if eq $fieldType "array"}}
+                {{/* rules for []int */}}
+                {{if and (eq $fieldBaseType "int") (eq .Type "min")}}
+                    for _, item := range {{$varName}}.{{$fieldName}} {
+                        if item < {{.String}} {
+                            vErrs = append(vErrs, ValidationError{
+                                Field: "{{$fieldName}}",
+                                Err: errors.New("each item in {{$fieldName}} must be greater than {{.String}}"),
+                            })
+                            break
+                        }
+                    }
+                {{else if and (eq $fieldBaseType "int") (eq .Type "max")}}
+                    for _, item := range {{$varName}}.{{$fieldName}} {
+                        if item > {{.String}} {
+                            vErrs = append(vErrs, ValidationError{
+                                Field: "{{$fieldName}}",
+                                Err: errors.New("each item in {{$fieldName}} must be less than {{.String}}"),
+                            })
+                            break
+                        }
+                    }
+                {{else if and (eq $fieldBaseType "int") (eq .Type "in")}}
+                    {{$varName}}{{$fieldName}}Set := strings.Split("{{.String}}", ",")
+                    for _, item := range {{$varName}}.{{$fieldName}} {
+                        var found bool
+                        for _, s := range {{$varName}}{{$fieldName}}Set {
+                            i, err := strconv.Atoi(strings.TrimSpace(s))
+                            if err != nil {
+                                return vErrs, err
+                            }
+                            found = item == i
+                            if found {
+                                break
+                            }
+                        }
+                        if !found {
+                            vErrs = append(vErrs, ValidationError{
+                                Field: "{{$fieldName}}",
+                                Err: errors.New("each item in {{$fieldName}} must be from [{{.String}}] set"),
+                            })
+                            break
+                        }
+                    }
+                {{/* rules for []string */}}
+                {{else if and (eq $fieldBaseType "string") (eq .Type "len")}}
+                    for _, item := range {{$varName}}.{{$fieldName}} {
+                        if len(item) != {{.String}} {
+                            vErrs = append(vErrs, ValidationError{
+                                Field: "{{$fieldName}}",
+                                Err: errors.New("length of each element in {{$fieldName}} must be {{.String}} characters"),
+                            })
+                            break
+                        }
+                    }
+                {{else if and (eq $fieldBaseType "string") (eq .Type "regexp")}}
+                    {{$varName}}{{$fieldName}}RE, err := regexp.Compile("{{.String}}")
+	                if err != nil {
+		                return vErrs, err
+	                }
+                    for _, item := range {{$varName}}.{{$fieldName}} {
+	                    if !{{$varName}}{{$fieldName}}RE.Match([]byte(item)) {
+		                    vErrs = append(vErrs, ValidationError{
+                                Field: "{{$fieldName}}",
+                                Err: errors.New(`each element in {{$fieldName}} must match regexp "{{.String}}"`),
+                            })
+                            break
+	                    }
+                    }
+                {{else if and (eq $fieldBaseType "string") (eq .Type "in")}}
+                    {{$varName}}{{$fieldName}}Set := strings.Split("{{.String}}", ",")
+                    for _, item := range {{$varName}}.{{$fieldName}} {
+                        var found bool
+                        for _, s := range {{$varName}}{{$fieldName}}Set {
+                            found = item == strings.TrimSpace(s)
+                            if found {
+                                break
+                            }
+                        }
+                        if !found {
+                            vErrs = append(vErrs, ValidationError{
+                                Field: "{{$fieldName}}",
+                                Err: errors.New("each item in {{$fieldName}} must be from [{{.String}}] set"),
+                            })
+                            break
+                        }
+                    }
+                {{end}}
+            {{/* rules for user defined types based on int and string*/}}
+            {{/* rules for types based on int */}}
+            {{else if and (eq $fieldBaseType "int") (eq .Type "min")}}
+                if {{$varName}}.{{$fieldName}} < {{.String}} {
+                    vErrs = append(vErrs, ValidationError{
+                        Field: "{{$fieldName}}",
+                        Err: errors.New("{{$fieldName}} must be greater than {{.String}}"),
+                    })
+                }
+            {{else if and (eq $fieldBaseType "int") (eq .Type "max")}}
+                if {{$varName}}.{{$fieldName}} > {{.String}} {
+                    vErrs = append(vErrs, ValidationError{
+                        Field: "{{$fieldName}}",
+                        Err: errors.New("{{$fieldName}} must be less than {{.String}}"),
+                    })
+                }
+            {{else if and (eq $fieldBaseType "int") (eq .Type "in")}}
+                {{$varName}}{{$fieldName}}Set := strings.Split("{{.String}}", ",")
+                var found bool
+                for _, s := range {{$varName}}{{$fieldName}}Set {
+                    i, err := strconv.Atoi(strings.TrimSpace(s))
+                    if err != nil {
+                        return vErrs, err
+                    }
+                    found = {{$varName}}.{{$fieldName}} == i
+                    if found {
+                        break
+                    }
+                }
+                if !found {
+                    vErrs = append(vErrs, ValidationError{
+                        Field: "{{$fieldName}}",
+                        Err: errors.New("{{$fieldName}} not in [{{.String}}]"),
+                    })
+                }
+            {{/* rules for types based on string */}}
+            {{else if and (eq $fieldBaseType "string") (eq .Type "len")}}
+                if len({{$varName}}.{{$fieldName}}) != {{.String}} {
+                    vErrs = append(vErrs, ValidationError{
+                        Field: "{{$fieldName}}",
+                        Err: errors.New("length of {{$fieldName}} must be {{.String}} characters"),
+                    })
+                }
+            {{else if and (eq $fieldBaseType "string") (eq .Type "regexp")}}
+                {{$varName}}{{$fieldName}}RE, err := regexp.Compile("{{.String}}")
+	            if err != nil {
+		            return vErrs, err
+	            }
+	            if !{{$varName}}{{$fieldName}}RE.Match([]byte({{$varName}}.{{$fieldName}})) {
+		            vErrs = append(vErrs, ValidationError{
+                        Field: "{{$fieldName}}",
+                        Err: errors.New(`{{$fieldName}} is not matching regexp "{{.String}}"`),
+                    })
+	            }
+            {{else if and (eq $fieldBaseType "string") (eq .Type "in")}}
+                inStrings := strings.Split("{{.String}}", ",")
+                var found bool
+                for _, s := range inStrings {
+                    found = string({{$varName}}.{{$fieldName}}) == strings.TrimSpace(s)
+                    if found {
+                        break
+                    }
+                }
+                if !found {
+                    vErrs = append(vErrs, ValidationError{
+                        Field: "{{$fieldName}}",
+                        Err: errors.New("{{$fieldName}} not in [{{.String}}]"),
+                    })
+                }
+            {{end}}
+        {{end}}
+    {{end}}
+    return vErrs, nil
+}
+{{end}}
