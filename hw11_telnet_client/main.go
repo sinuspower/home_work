@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"net"
 	"os"
@@ -11,7 +10,6 @@ import (
 )
 
 func main() {
-	// do not rush to throw context down, think if it is useful with blocking operation?
 	var timeoutString string
 	flag.StringVar(&timeoutString, "timeout", "10s", "server connection timeout")
 	flag.Parse()
@@ -32,34 +30,29 @@ func main() {
 	if err := client.Connect(); err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("...Connected to %s\n", address)
-	defer func() {
-		if err := client.Close(); err != nil {
-			log.Fatal(err)
-		}
-		fmt.Println("...Connection closed")
-	}()
 
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	// write
-	go func() {
-		var err error
-		for err == nil {
-			err = client.Send()
-		}
-		defer wg.Done()
-	}()
-
-	// read
-	go func() {
-		var err error
-		for err == nil {
-			err = client.Receive()
-		}
-		defer wg.Done()
-	}()
+	go read(client, &wg)
+	go write(client, &wg)
 
 	wg.Wait()
+}
+
+func read(client TelnetClient, wg *sync.WaitGroup) {
+	defer wg.Done()
+	if err := client.Receive(); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func write(client TelnetClient, wg *sync.WaitGroup) {
+	defer wg.Done()
+	if err := client.Send(); err != nil {
+		log.Fatal(err)
+	}
+	if err := client.Close(); err != nil {
+		log.Fatal(err)
+	}
 }

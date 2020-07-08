@@ -2,7 +2,9 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -14,81 +16,114 @@ type TelnetClient interface {
 	Send() error
 	Receive() error
 	Close() error
+	Cancel()
+	Notify(string)
 }
 
 type Client struct {
-	Address    string
-	Timeout    time.Duration
-	In         io.ReadCloser
-	Out        io.Writer
-	Err        io.Writer
-	Connection net.Conn
+	address    string
+	timeout    time.Duration
+	in         io.ReadCloser
+	out        io.Writer
+	err        io.Writer
+	connection net.Conn
+	context    context.Context
+	cancel     func()
 }
 
 var (
 	ErrCanNotConnect         = errors.New("can not connect to server")
 	ErrCanNotWriteOut        = errors.New("can not write into out")
 	ErrCanNotCloseConnection = errors.New("can not close connection")
-	ErrCanNotReadIn          = errors.New("can not read from in")
 	ErrCanNotWriteSocket     = errors.New("can not write socket")
-	ErrCanNotReadSocket      = errors.New("can not read socket")
 )
 
 func NewTelnetClient(address string, timeout time.Duration, in io.ReadCloser, out io.Writer) TelnetClient {
-	return &Client{
-		Address:    address,
-		Timeout:    timeout,
-		In:         in,
-		Out:        out,
-		Err:        os.Stderr,
-		Connection: nil,
+	client := Client{
+		address:    address,
+		timeout:    timeout,
+		in:         in,
+		out:        out,
+		err:        os.Stderr,
+		connection: nil,
+		context:    context.Background(),
 	}
+	ctx, cancel := context.WithCancel(client.context)
+	client.context = ctx
+	client.cancel = cancel
+	return &client
 }
 
 func (c *Client) Connect() error {
-	conn, err := net.DialTimeout("tcp", c.Address, c.Timeout)
+	conn, err := net.DialTimeout("tcp", c.address, c.timeout)
 	if err != nil {
 		return ErrCanNotConnect
 	}
-	c.Connection = conn
+	c.connection = conn
+	c.Notify("...Connected to " + c.address) // all messages are displayed in Stderr
 	return nil
 }
 
 func (c *Client) Send() error {
-	scanner := bufio.NewScanner(c.In)
-	if !scanner.Scan() {
-		return ErrCanNotReadIn
-	}
-	bytes := append(scanner.Bytes(), byte('\n'))
-	n, err := c.Connection.Write(bytes)
-	if err != nil || n == 0 {
-		return ErrCanNotWriteSocket
+	scanner := bufio.NewScanner(c.in)
+SEND:
+	for {
+		select {
+		case <-c.context.Done():
+			c.Notify("...Connection was closed by peer")
+			break SEND
+		default:
+			if !scanner.Scan() {
+				c.Notify("...EOF")
+				break SEND
+			}
+			str := scanner.Text()
+			_, err := c.connection.Write([]byte(fmt.Sprintf("%s\n", str)))
+			if err != nil {
+				return ErrCanNotWriteSocket
+			}
+		}
 	}
 	return nil
 }
 
 func (c *Client) Receive() error {
-	scanner := bufio.NewScanner(c.Connection)
-	if !scanner.Scan() {
-		return ErrCanNotReadSocket
-	}
-	bytes := append(scanner.Bytes(), byte('\n'))
-	n, err := c.Out.Write(bytes)
-	if err != nil || n == 0 {
-		return ErrCanNotWriteOut
+	scanner := bufio.NewScanner(c.connection)
+RECEIVE:
+	for {
+		select {
+		case <-c.context.Done():
+			break RECEIVE
+		default:
+			if !scanner.Scan() {
+				c.Cancel() // connection closed, stop sending
+				break RECEIVE
+			}
+			str := scanner.Text()
+			_, err := c.out.Write([]byte(fmt.Sprintf("%s\n", str)))
+			if err != nil {
+				return ErrCanNotWriteOut
+			}
+		}
 	}
 	return nil
 }
 
 func (c *Client) Close() error {
-	if c.Connection == nil {
+	if c.connection == nil {
 		return nil
 	}
-	err := c.Connection.Close()
+	err := c.connection.Close()
 	if err != nil {
 		return ErrCanNotCloseConnection
 	}
 	return nil
 }
 
-// author's solution takes no more than 50 lines
+func (c *Client) Cancel() {
+	c.cancel()
+}
+
+func (c *Client) Notify(str string) {
+	fmt.Fprintln(c.err, str)
+}
