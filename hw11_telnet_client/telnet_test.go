@@ -71,8 +71,8 @@ func TestConnect(t *testing.T) {
 	timeout, err := time.ParseDuration("10s")
 	require.NoError(t, err)
 
-	in := &bytes.Buffer{}
-	out := &bytes.Buffer{}
+	in := new(bytes.Buffer)
+	out := new(bytes.Buffer)
 
 	t.Run("successful connection", func(t *testing.T) {
 		client := NewTelnetClient(l.Addr().String(), timeout, ioutil.NopCloser(in), out)

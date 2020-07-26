@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -16,7 +15,6 @@ type TelnetClient interface {
 	Send() error
 	Receive() error
 	Close() error
-	Cancel()
 	Notify(string)
 }
 
@@ -27,8 +25,7 @@ type Client struct {
 	out        io.Writer
 	err        io.Writer
 	connection net.Conn
-	context    context.Context
-	cancel     func()
+	closed     bool
 }
 
 var (
@@ -39,19 +36,15 @@ var (
 )
 
 func NewTelnetClient(address string, timeout time.Duration, in io.ReadCloser, out io.Writer) TelnetClient {
-	client := Client{
+	return &Client{
 		address:    address,
 		timeout:    timeout,
 		in:         in,
 		out:        out,
 		err:        os.Stderr,
 		connection: nil,
-		context:    context.Background(),
+		closed:     false,
 	}
-	ctx, cancel := context.WithCancel(client.context)
-	client.context = ctx
-	client.cancel = cancel
-	return &client
 }
 
 func (c *Client) Connect() error {
@@ -60,28 +53,25 @@ func (c *Client) Connect() error {
 		return ErrCanNotConnect
 	}
 	c.connection = conn
-	c.Notify("...Connected to " + c.address) // all messages are displayed in Stderr
+	c.Notify("...Connected to " + c.address + "\n") // all messages are displayed in Stderr
 	return nil
 }
 
 func (c *Client) Send() error {
 	scanner := bufio.NewScanner(c.in)
-SEND:
 	for {
-		select {
-		case <-c.context.Done():
-			c.Notify("...Connection was closed by peer")
-			break SEND
-		default:
-			if !scanner.Scan() {
-				c.Notify("...EOF")
-				break SEND
-			}
-			str := scanner.Text()
-			_, err := c.connection.Write([]byte(fmt.Sprintf("%s\n", str)))
+		if !scanner.Scan() {
+			c.Notify("...EOF")
+			// c.Close() // "basic" test fails!
+			break
+		}
+		if !c.closed {
+			_, err := c.connection.Write(append(scanner.Bytes(), '\n'))
 			if err != nil {
-				return ErrCanNotWriteSocket
+				return fmt.Errorf("%s: %w", ErrCanNotWriteSocket, err)
 			}
+		} else {
+			break
 		}
 	}
 	return nil
@@ -89,39 +79,29 @@ SEND:
 
 func (c *Client) Receive() error {
 	scanner := bufio.NewScanner(c.connection)
-RECEIVE:
 	for {
-		select {
-		case <-c.context.Done():
-			break RECEIVE
-		default:
-			if !scanner.Scan() {
-				c.Cancel() // connection closed, stop sending
-				break RECEIVE
-			}
-			str := scanner.Text()
-			_, err := c.out.Write([]byte(fmt.Sprintf("%s\n", str)))
-			if err != nil {
-				return ErrCanNotWriteOut
-			}
+		if !scanner.Scan() {
+			c.Notify("\n...Connection closed")
+			c.closed = true // if connection closed by peer
+			break
+		}
+		_, err := c.out.Write(append(scanner.Bytes(), '\n'))
+		if err != nil {
+			return fmt.Errorf("%s: %w", ErrCanNotWriteOut, err)
 		}
 	}
 	return nil
 }
 
 func (c *Client) Close() error {
-	if c.connection == nil {
+	if c.connection == nil || c.closed {
 		return nil
 	}
-	err := c.connection.Close()
-	if err != nil {
-		return ErrCanNotCloseConnection
+	if err := c.connection.Close(); err != nil {
+		return fmt.Errorf("%s: %w", ErrCanNotCloseConnection, err)
 	}
+	c.closed = true
 	return nil
-}
-
-func (c *Client) Cancel() {
-	c.cancel()
 }
 
 func (c *Client) Notify(str string) {
