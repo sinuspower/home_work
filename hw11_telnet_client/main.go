@@ -36,20 +36,20 @@ func main() {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGINT)
 
-	var sigDone = make(chan struct{})
+	sigDone := make(chan struct{})
 	go func() {
 		<-c
 		signal.Stop(c)
 		sigDone <- struct{}{}
 	}()
 
-	var readDone = make(chan struct{})
+	readDone := make(chan struct{})
 	go func() {
 		read(client)
 		readDone <- struct{}{}
 	}()
 
-	var writeDone = make(chan struct{})
+	writeDone := make(chan struct{})
 	go func() {
 		write(client)
 		writeDone <- struct{}{}
