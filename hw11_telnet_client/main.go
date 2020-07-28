@@ -6,7 +6,6 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 )
@@ -32,39 +31,48 @@ func main() {
 	if err := client.Connect(); err != nil {
 		log.Fatal(err)
 	}
+	client.Notify("...Connected to " + address + "\n")
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGINT)
 
+	var sigDone = make(chan struct{})
 	go func() {
-		for range c {
-			client.Close() // CTRL+C
-			break
-		}
+		<-c
+		signal.Stop(c)
+		sigDone <- struct{}{}
 	}()
 
+	var readDone = make(chan struct{})
 	go func() {
 		read(client)
+		readDone <- struct{}{}
 	}()
 
-	var wg sync.WaitGroup
-	wg.Add(1)
+	var writeDone = make(chan struct{})
 	go func() {
-		defer wg.Done()
 		write(client)
+		writeDone <- struct{}{}
 	}()
 
-	wg.Wait()
+	select {
+	case <-sigDone:
+		client.Notify("\n...Cancelled")
+	case <-readDone:
+		client.Notify("\n...Connection closed by peer")
+	case <-writeDone:
+		client.Notify("\n...EOF")
+	}
 }
 
 func read(client TelnetClient) {
 	if err := client.Receive(); err != nil {
-		log.Fatal(err)
+		log.Fatalf("%s: %s", "Error receiving: ", err)
 	}
 }
 
 func write(client TelnetClient) {
 	if err := client.Send(); err != nil {
-		log.Fatal(err)
+		log.Fatalf("%s: %s", "Error sending: ", err)
 	}
 }
